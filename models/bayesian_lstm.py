@@ -155,7 +155,12 @@ class BayesianLSTM(nn.Module):
         else:
             input_tensor = input_sequence
         
-        if len(input_tensor.shape) == 2:
+        # Ensure proper dimensions: (batch_size, sequence_length, input_size)
+        if len(input_tensor.shape) == 1:
+            # Shape: (sequence_length,) -> (1, sequence_length, 1)
+            input_tensor = input_tensor.unsqueeze(0).unsqueeze(-1)
+        elif len(input_tensor.shape) == 2:
+            # Shape: (batch_size, sequence_length) -> (batch_size, sequence_length, 1)
             input_tensor = input_tensor.unsqueeze(-1)
         
         # Store predictions from multiple MC samples
@@ -174,9 +179,19 @@ class BayesianLSTM(nn.Module):
                     
                     # Update sequence for next prediction
                     # Remove first element and append prediction
+                    # Ensure pred has the right shape: (batch_size, 1, input_size)
+                    if len(pred.shape) == 2:
+                        pred_reshaped = pred.unsqueeze(1)  # Add sequence dimension
+                    else:
+                        pred_reshaped = pred
+                    
+                    # Ensure pred_reshaped matches the input_size dimension
+                    if pred_reshaped.shape[-1] != current_sequence.shape[-1]:
+                        pred_reshaped = pred_reshaped.unsqueeze(-1)
+                    
                     new_input = torch.cat([
                         current_sequence[:, 1:, :],
-                        pred.unsqueeze(1).unsqueeze(-1)
+                        pred_reshaped
                     ], dim=1)
                     current_sequence = new_input
                 
