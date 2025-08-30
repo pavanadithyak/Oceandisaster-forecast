@@ -328,52 +328,37 @@ forecast_time = pd.date_range(
     freq='h'
 )
 
-# Create the main plot
-fig = make_subplots(
-    rows=2, cols=1,
-    subplot_titles=[f'{selected_parameter} Forecast with Uncertainty', 'Model Comparison'],
-    row_heights=[0.7, 0.3]
-)
+# Bayesian LSTM Plot
+st.subheader("🧠 Bayesian LSTM Forecast with Uncertainty")
+lstm_fig = go.Figure()
 
 # Historical data
-fig.add_trace(
+lstm_fig.add_trace(
     go.Scatter(
         x=historical_time,
         y=processed_data[parameters[selected_parameter]],
         mode='lines',
         name='Historical Data',
         line=dict(color='blue', width=2)
-    ),
-    row=1, col=1
+    )
 )
 
 # Predictions with uncertainty bands
 upper_bound = predictions + 1.96 * uncertainties  # 95% confidence interval
 lower_bound = predictions - 1.96 * uncertainties
 
-fig.add_trace(
-    go.Scatter(
-        x=forecast_time,
-        y=predictions,
-        mode='lines',
-        name='LSTM Prediction',
-        line=dict(color='red', width=2)
-    ),
-    row=1, col=1
-)
-
-fig.add_trace(
+lstm_fig.add_trace(
     go.Scatter(
         x=forecast_time,
         y=upper_bound,
         mode='lines',
         line=dict(width=0),
-        showlegend=False
-    ),
-    row=1, col=1
+        showlegend=False,
+        hovertemplate='Upper Bound: %{y:.3f}<extra></extra>'
+    )
 )
 
-fig.add_trace(
+lstm_fig.add_trace(
     go.Scatter(
         x=forecast_time,
         y=lower_bound,
@@ -381,50 +366,193 @@ fig.add_trace(
         fill='tonexty',
         fillcolor='rgba(255, 0, 0, 0.2)',
         line=dict(width=0),
-        name='95% Confidence Interval'
-    ),
-    row=1, col=1
+        name='95% Confidence Interval',
+        hovertemplate='Lower Bound: %{y:.3f}<extra></extra>'
+    )
 )
 
-# ARIMA comparison
-fig.add_trace(
+lstm_fig.add_trace(
+    go.Scatter(
+        x=forecast_time,
+        y=predictions,
+        mode='lines+markers',
+        name='LSTM Prediction',
+        line=dict(color='red', width=3),
+        marker=dict(size=6, color='red')
+    )
+)
+
+lstm_fig.update_layout(
+    title=f"Bayesian LSTM Forecast - {selected_parameter} at {selected_location}",
+    xaxis_title="Time",
+    yaxis_title=f"{selected_parameter}",
+    height=500,
+    showlegend=True,
+    hovermode='x unified'
+)
+
+st.plotly_chart(lstm_fig, use_container_width=True)
+
+# ARIMA Model Plot
+st.subheader("📊 ARIMA Baseline Forecast")
+arima_fig = go.Figure()
+
+# Historical data
+arima_fig.add_trace(
+    go.Scatter(
+        x=historical_time,
+        y=processed_data[parameters[selected_parameter]],
+        mode='lines',
+        name='Historical Data',
+        line=dict(color='blue', width=2)
+    )
+)
+
+# ARIMA predictions
+arima_fig.add_trace(
     go.Scatter(
         x=forecast_time,
         y=arima_predictions,
-        mode='lines',
-        name='ARIMA Baseline',
-        line=dict(color='green', width=2, dash='dash')
-    ),
-    row=1, col=1
+        mode='lines+markers',
+        name='ARIMA Prediction',
+        line=dict(color='green', width=3, dash='dash'),
+        marker=dict(size=6, color='green', symbol='diamond')
+    )
 )
 
-# Model performance comparison
+arima_fig.update_layout(
+    title=f"ARIMA Baseline Forecast - {selected_parameter} at {selected_location}",
+    xaxis_title="Time",
+    yaxis_title=f"{selected_parameter}",
+    height=500,
+    showlegend=True,
+    hovermode='x unified'
+)
+
+st.plotly_chart(arima_fig, use_container_width=True)
+
+# Model Comparison Plot
+st.subheader("⚖️ Model Performance Comparison")
+comparison_fig = make_subplots(
+    rows=1, cols=2,
+    subplot_titles=['R² Score Comparison', 'RMSE Comparison'],
+    specs=[[{"secondary_y": False}, {"secondary_y": False}]]
+)
+
 models = ['Bayesian LSTM', 'ARIMA']
 r2_scores = [lstm_metrics['r2'], arima_metrics['r2']]
 rmse_scores = [lstm_metrics['rmse'], arima_metrics['rmse']]
 
-fig.add_trace(
+# R² Score comparison
+comparison_fig.add_trace(
     go.Bar(
         x=models,
         y=r2_scores,
         name='R² Score',
-        marker_color='lightblue'
+        marker_color=['#ff6b6b', '#4ecdc4'],
+        text=[f'{score:.4f}' for score in r2_scores],
+        textposition='auto'
     ),
-    row=2, col=1
+    row=1, col=1
 )
 
-fig.update_layout(
-    height=800,
-    title_text=f"Ocean Forecasting Dashboard - {selected_location}",
-    showlegend=True
+# RMSE comparison
+comparison_fig.add_trace(
+    go.Bar(
+        x=models,
+        y=rmse_scores,
+        name='RMSE',
+        marker_color=['#ff9ff3', '#54a0ff'],
+        text=[f'{score:.4f}' for score in rmse_scores],
+        textposition='auto'
+    ),
+    row=1, col=2
 )
 
-fig.update_xaxes(title_text="Time", row=1, col=1)
-fig.update_yaxes(title_text=f"{selected_parameter}", row=1, col=1)
-fig.update_xaxes(title_text="Model", row=2, col=1)
-fig.update_yaxes(title_text="R² Score", row=2, col=1)
+comparison_fig.update_layout(
+    title_text="Model Performance Metrics Comparison",
+    height=400,
+    showlegend=False
+)
 
-st.plotly_chart(fig, use_container_width=True)
+comparison_fig.update_xaxes(title_text="Model", row=1, col=1)
+comparison_fig.update_yaxes(title_text="R² Score", row=1, col=1)
+comparison_fig.update_xaxes(title_text="Model", row=1, col=2)
+comparison_fig.update_yaxes(title_text="RMSE", row=1, col=2)
+
+st.plotly_chart(comparison_fig, use_container_width=True)
+
+# Combined Overlay Plot (Optional)
+with st.expander("📈 View Combined Overlay Comparison"):
+    combined_fig = go.Figure()
+    
+    # Historical data
+    combined_fig.add_trace(
+        go.Scatter(
+            x=historical_time,
+            y=processed_data[parameters[selected_parameter]],
+            mode='lines',
+            name='Historical Data',
+            line=dict(color='blue', width=2)
+        )
+    )
+    
+    # LSTM predictions
+    combined_fig.add_trace(
+        go.Scatter(
+            x=forecast_time,
+            y=predictions,
+            mode='lines+markers',
+            name='Bayesian LSTM',
+            line=dict(color='red', width=2),
+            marker=dict(size=4)
+        )
+    )
+    
+    # ARIMA predictions
+    combined_fig.add_trace(
+        go.Scatter(
+            x=forecast_time,
+            y=arima_predictions,
+            mode='lines+markers',
+            name='ARIMA Baseline',
+            line=dict(color='green', width=2, dash='dash'),
+            marker=dict(size=4, symbol='diamond')
+        )
+    )
+    
+    # Uncertainty band for LSTM
+    combined_fig.add_trace(
+        go.Scatter(
+            x=forecast_time,
+            y=upper_bound,
+            mode='lines',
+            line=dict(width=0),
+            showlegend=False
+        )
+    )
+    
+    combined_fig.add_trace(
+        go.Scatter(
+            x=forecast_time,
+            y=lower_bound,
+            mode='lines',
+            fill='tonexty',
+            fillcolor='rgba(255, 0, 0, 0.1)',
+            line=dict(width=0),
+            name='LSTM 95% CI'
+        )
+    )
+    
+    combined_fig.update_layout(
+        title=f"Combined Model Comparison - {selected_parameter} at {selected_location}",
+        xaxis_title="Time",
+        yaxis_title=f"{selected_parameter}",
+        height=500,
+        hovermode='x unified'
+    )
+    
+    st.plotly_chart(combined_fig, use_container_width=True)
 
 # Additional visualizations
 col1, col2 = st.columns(2)
