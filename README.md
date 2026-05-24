@@ -2,7 +2,7 @@
 title: OceanForecast
 emoji: 🌊
 colorFrom: blue
-colorTo: cyan
+colorTo: indigo
 sdk: streamlit
 sdk_version: "1.48.1"
 app_file: app.py
